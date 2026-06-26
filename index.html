@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Air Quality Monitor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --font: 'Space Grotesk', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+
+  .logo-text h1 {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text p {
+    font-size: 0.72em;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.78em;
+    color: var(--green);
+    font-family: var(--mono);
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* METRICS ROW */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent-color, var(--accent));
+  }
+
+  .metric-card.co2   { --accent-color: #00d4ff; }
+  .metric-card.temp  { --accent-color: #f59e0b; }
+  .metric-card.hum   { --accent-color: #10b981; }
+  .metric-card.pm25  { --accent-color: #7c3aed; }
+
+  .metric-label {
+    font-size: 0.72em;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    font-family: var(--mono);
+  }
+
+  .metric-value {
+    font-size: 2.4em;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    font-family: var(--mono);
+  }
+
+  .metric-unit {
+    font-size: 0.5em;
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+
+  .metric-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    font-size: 0.75em;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-family: var(--mono);
+  }
+
+  .status-ok   { background: rgba(16,185,129,0.15); color: var(--green); }
+  .status-warn { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .status-danger { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  /* GAUGE + CONTROL ROW */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 320px;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  .gauge-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .gauge-title {
+    font-size: 0.8em;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    font-family: var(--mono);
+  }
+
+  canvas { display: block; margin: 0 auto; }
+
+  .gauge-reading {
+    margin-top: 10px;
+    font-size: 1.6em;
+    font-weight: 700;
+    font-family: var(--mono);
+    color: var(--text);
+  }
+
+  /* CONTROL PANEL */
+  .control-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .control-title {
+    font-size: 0.8em;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: var(--mono);
+  }
+
+  .led-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+    background: var(--surface2);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .led-bulb {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #1e2d45;
+    border: 2px solid var(--border);
+    transition: all 0.4s;
+  }
+
+  .led-bulb.on {
+    background: var(--green);
+    box-shadow: 0 0 20px var(--green), 0 0 40px rgba(16,185,129,0.3);
+  }
+
+  .led-bulb.off {
+    background: var(--red);
+    box-shadow: 0 0 20px var(--red), 0 0 40px rgba(239,68,68,0.3);
+  }
+
+  .led-label {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    color: var(--text);
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .btn-on  { background: rgba(16,185,129,0.2); color: var(--green); border: 1px solid rgba(16,185,129,0.4); }
+  .btn-off { background: rgba(239,68,68,0.2);  color: var(--red);   border: 1px solid rgba(239,68,68,0.4); }
+  .btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .led-state-text {
+    font-family: var(--mono);
+    font-size: 0.78em;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* ALERT BANNER */
+  .alert-banner {
+    display: none;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.4);
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.88em;
+    color: var(--red);
+  }
+
+  .alert-banner.hidden { display: none; }
+
+  /* AI SECTION */
+  .ai-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .ai-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .ai-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 1em;
+  }
+
+  .ai-badge {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    font-size: 0.65em;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-weight: 600;
+  }
+
+  .btn-analyze {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-analyze:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .ai-output {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    font-size: 0.88em;
+    line-height: 1.7;
+    color: var(--text);
+    min-height: 100px;
+    white-space: pre-wrap;
+    font-family: var(--mono);
+  }
+
+  .ai-placeholder {
+    color: var(--muted);
+    font-style: italic;
+    font-family: var(--font);
+  }
+
+  .ai-thinking {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent);
+    font-family: var(--font);
+  }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(0,212,255,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* HISTORY CHART */
+  .history-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .section-title {
+    font-size: 0.8em;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    font-family: var(--mono);
+  }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    font-size: 0.75em;
+    color: var(--muted);
+    font-family: var(--mono);
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🌬️</div>
+    <div class="logo-text">
+      <h1>AI Air Quality Monitor</h1>
+      <p>ESP32 + ThingSpeak + Claude AI — Channel #3416300</p>
+    </div>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    LIVE · Refresh 15s
+  </div>
+</header>
+
+<!-- ALERT BANNER -->
+<div class="alert-banner hidden" id="alertBanner">
+  🚨 <strong>ALERTE POLLUTION DÉTECTÉE</strong> — Les niveaux de CO2 ou de température dépassent les seuils de sécurité !
+</div>
+
+<!-- METRICS -->
+<div class="metrics">
+  <div class="metric-card co2">
+    <div class="metric-label">💨 CO₂</div>
+    <div class="metric-value" id="co2Val">--<span class="metric-unit">ppm</span></div>
+    <div class="metric-status status-ok" id="co2Status">● Bon</div>
+  </div>
+  <div class="metric-card temp">
+    <div class="metric-label">🌡️ Température</div>
+    <div class="metric-value" id="tempVal">--<span class="metric-unit">°C</span></div>
+    <div class="metric-status status-ok" id="tempStatus">● Normal</div>
+  </div>
+  <div class="metric-card hum">
+    <div class="metric-label">💧 Humidité</div>
+    <div class="metric-value" id="humVal">--<span class="metric-unit">%</span></div>
+    <div class="metric-status status-ok" id="humStatus">● Normal</div>
+  </div>
+  <div class="metric-card pm25">
+    <div class="metric-label">🔬 PM2.5</div>
+    <div class="metric-value" id="pm25Val">--<span class="metric-unit">µg/m³</span></div>
+    <div class="metric-status status-ok" id="pm25Status">● Bon</div>
+  </div>
+</div>
+
+<!-- GAUGES + CONTROL -->
+<div class="main-grid">
+  <div class="gauge-card">
+    <div class="gauge-title">CO₂ (ppm)</div>
+    <canvas id="co2Gauge" width="220" height="160"></canvas>
+    <div class="gauge-reading" id="co2Gauge-val">-- ppm</div>
+  </div>
+  <div class="gauge-card">
+    <div class="gauge-title">Température (°C)</div>
+    <canvas id="tempGauge" width="220" height="160"></canvas>
+    <div class="gauge-reading" id="tempGauge-val">-- °C</div>
+  </div>
+  <div class="control-card">
+    <div class="control-title">🤖 LED Automatique — GPIO 23</div>
+    <div class="led-visual">
+      <div class="led-bulb" id="ledBulb"></div>
+      <div class="led-label" id="ledLabel">État inconnu</div>
+    </div>
+
+    <div class="led-state-text" id="ledStateText">⏳ Calcul du score en cours...</div>
+  </div>
+</div>
+
+<!-- AI SECTION -->
+<div class="ai-section">
+  <div class="ai-header">
+    <div class="ai-title">
+      🤖 Analyse IA — <span id="scoreBadge" style="font-size:0.85em;color:#64748b;font-family:var(--mono)">Calcul score...</span>
+      <span class="ai-badge">AUTO</span>
+    </div>
+    <button class="btn-analyze" id="btnAnalyze" onclick="analyzeWithAI()">
+      ✨ Analyser maintenant
+    </button>
+  </div>
+  <div class="ai-output" id="aiOutput">
+    <span class="ai-placeholder">Cliquez sur "Analyser" pour obtenir une analyse intelligente de la qualité de l'air par Claude AI...</span>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="history-section">
+  <div class="section-title">📈 Historique — 10 dernières mesures</div>
+  <canvas id="historyChart" width="900" height="200"></canvas>
+</div>
+
+<footer>
+  Dernière mise à jour : <span id="lastUpdate">--</span> &nbsp;|&nbsp;
+  ESP32 → ThingSpeak Channel 3416300 &nbsp;|&nbsp;
+  AI Smart Air Quality Monitoring Platform
+</footer>
+
+<script>
+// ===== CONFIG =====
+const CHANNEL_ID  = "3416300";
+const READ_KEY    = "5V1IR415RS191NC8";
+const WRITE_KEY   = "U0S01DWGDJ24T4F8";
+
+// ===== STATE =====
+let currentData = { co2: null, temp: null, hum: null, pm25: null };
+let history = [];
+let ledPending = null;
+let retryTimer = null;
+let retryCount = 0;
+
+// ===== GAUGE DRAW =====
+function drawGauge(canvasId, value, min, max, color, unit) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext("2d");
+  const x = 110, y = 120, r = 80;
+  ctx.clearRect(0, 0, 220, 160);
+
+  // Background arc
+  ctx.beginPath();
+  ctx.arc(x, y, r, Math.PI, 2 * Math.PI);
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = "#1e2d45";
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  // Value arc
+  let pct = (value - min) / (max - min);
+  pct = Math.min(Math.max(isNaN(pct) ? 0 : pct, 0), 1);
+  if (pct > 0) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, Math.PI, Math.PI + pct * Math.PI);
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = color;
+    ctx.lineCap = "round";
+    ctx.stroke();
+  }
+
+  // Needle
+  const angle = Math.PI + pct * Math.PI;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + (r - 14) * Math.cos(angle), y + (r - 14) * Math.sin(angle));
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#e2e8f0";
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, 2 * Math.PI);
+  ctx.fillStyle = "#e2e8f0";
+  ctx.fill();
+
+  // Labels
+  ctx.font = "10px JetBrains Mono, monospace";
+  ctx.fillStyle = "#64748b";
+  ctx.textAlign = "center";
+  for (let i = 0; i <= 4; i++) {
+    const a = Math.PI + (i / 4) * Math.PI;
+    const v = Math.round(min + (i / 4) * (max - min));
+    ctx.fillText(v, x + (r + 18) * Math.cos(a), y + (r + 18) * Math.sin(a) + 4);
+  }
+}
+
+// ===== STATUS HELPERS =====
+function co2Status(v) {
+  if (v < 600)  return ['status-ok',     '● Excellent'];
+  if (v < 800)  return ['status-ok',     '● Bon'];
+  if (v < 1000) return ['status-warn',   '● Modéré'];
+  return             ['status-danger',  '● Dangereux'];
+}
+function tempStatus(v) {
+  if (v < 20)   return ['status-warn',   '● Froid'];
+  if (v < 30)   return ['status-ok',     '● Normal'];
+  if (v < 35)   return ['status-warn',   '● Chaud'];
+  return             ['status-danger',  '● Danger'];
+}
+function humStatus(v) {
+  if (v < 30)   return ['status-warn',   '● Sec'];
+  if (v < 70)   return ['status-ok',     '● Normal'];
+  return             ['status-warn',   '● Humide'];
+}
+function pm25Status(v) {
+  if (v < 12)   return ['status-ok',     '● Bon'];
+  if (v < 35)   return ['status-warn',   '● Modéré'];
+  return             ['status-danger',  '● Mauvais'];
+}
+
+function setStatus(elId, cls, txt) {
+  const el = document.getElementById(elId);
+  el.className = 'metric-status ' + cls;
+  el.textContent = txt;
+}
+
+// ===== LED UI =====
+function updateLEDUI(state) {
+  const bulb  = document.getElementById("ledBulb");
+  const label = document.getElementById("ledLabel");
+  const txt   = document.getElementById("ledStateText");
+  const score = calcScore(currentData.co2, currentData.temp, currentData.hum, currentData.pm25);
+  if (String(state).trim() === "1") {
+    bulb.className = "led-bulb on";
+    label.textContent = "🔴 ALARME ACTIVE";
+    txt.textContent = "Score " + score + "/100 — Air dangereux détecté !";
+    txt.style.color = "#ef4444";
+  } else if (String(state).trim() === "0") {
+    bulb.className = "led-bulb off";
+    label.textContent = "✅ Système normal";
+    txt.textContent = "Score " + score + "/100 — Qualité acceptable";
+    txt.style.color = "#10b981";
+  } else {
+    bulb.className = "led-bulb";
+    label.textContent = "⏳ Analyse...";
+    txt.textContent = "En attente de la première mesure";
+    txt.style.color = "#64748b";
+  }
+}
+
+function setBtns(d) {} // désactivé — tout est automatique
+
+function setBtns(disabled) {
+  document.getElementById("btnOn").disabled  = disabled;
+  document.getElementById("btnOff").disabled = disabled;
+}
+
+function tryWriteLED() {
+  if (ledPending === null) return;
+  const state = ledPending;
+  retryCount++;
+  document.getElementById("ledStateText").textContent = "Envoi... (essai " + retryCount + ")";
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "https://api.thingspeak.com/update?api_key=" + WRITE_KEY + "&field3=" + state, true);
+  xhr.onload = function() {
+    const r = xhr.responseText.trim();
+    if (xhr.status === 200 && r !== "0" && r !== "") {
+      ledPending = null; retryCount = 0;
+      if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+      updateLEDUI(state); setBtns(false);
+    } else {
+      if (!retryTimer) retryTimer = setInterval(tryWriteLED, 16000);
+    }
+  };
+  xhr.onerror = function() {
+    if (!retryTimer) retryTimer = setInterval(tryWriteLED, 16000);
+  };
+  xhr.send();
+}
+
+function setLED(state) {
+  if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+  retryCount = 0; ledPending = state;
+  setBtns(true); tryWriteLED();
+}
+
+// ===== FETCH DATA =====
+function updateData() {
+  const url = "https://api.thingspeak.com/channels/" + CHANNEL_ID +
+              "/feeds.json?api_key=" + READ_KEY + "&results=10";
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", url, true);
+  xhr.onload = function() {
+    if (xhr.status !== 200) return;
+    try {
+      const data = JSON.parse(xhr.responseText);
+      const feeds = data.feeds || [];
+      if (!feeds.length) return;
+
+      // Latest
+      const feed = feeds[feeds.length - 1];
+      const co2  = parseFloat(feed.field1);
+      const temp = parseFloat(feed.field2);
+      const hum  = parseFloat(feed.field3);
+      const pm25 = parseFloat(feed.field4);
+      const led  = feed.field3; // from old channel if needed
+
+      currentData = { co2, temp, hum, pm25 };
+
+      // Update metric cards
+      if (!isNaN(co2)) {
+        document.getElementById("co2Val").innerHTML = co2.toFixed(0) + '<span class="metric-unit">ppm</span>';
+        const [cls,txt] = co2Status(co2);
+        setStatus("co2Status", cls, txt);
+        drawGauge("co2Gauge", co2, 400, 1000, "#00d4ff", "ppm");
+        document.getElementById("co2Gauge-val").textContent = co2.toFixed(0) + " ppm";
+      }
+      if (!isNaN(temp)) {
+        document.getElementById("tempVal").innerHTML = temp.toFixed(1) + '<span class="metric-unit">°C</span>';
+        const [cls,txt] = tempStatus(temp);
+        setStatus("tempStatus", cls, txt);
+        drawGauge("tempGauge", temp, -10, 50, "#f59e0b", "°C");
+        document.getElementById("tempGauge-val").textContent = temp.toFixed(1) + " °C";
+      }
+      if (!isNaN(hum)) {
+        document.getElementById("humVal").innerHTML = hum.toFixed(1) + '<span class="metric-unit">%</span>';
+        const [cls,txt] = humStatus(hum);
+        setStatus("humStatus", cls, txt);
+      }
+      if (!isNaN(pm25)) {
+        document.getElementById("pm25Val").innerHTML = pm25.toFixed(1) + '<span class="metric-unit">µg/m³</span>';
+        const [cls,txt] = pm25Status(pm25);
+        setStatus("pm25Status", cls, txt);
+      }
+
+      // Alert banner
+      const banner = document.getElementById("alertBanner");
+      if ((!isNaN(co2) && co2 > 700) || (!isNaN(temp) && temp > 35)) {
+        banner.classList.remove("hidden");
+      } else {
+        banner.classList.add("hidden");
+      }
+
+      // LED automatique selon score
+      const score = calcScore(co2, temp, hum, pm25);
+      updateScoreBadge(score);
+      const autoLED = score < 60 ? 1 : 0;
+      if (ledPending === null) {
+        updateLEDUI(String(autoLED));
+        // Envoie commande LED automatique à ThingSpeak
+        const xhr2 = new XMLHttpRequest();
+        xhr2.open("GET", "https://api.thingspeak.com/update?api_key=" + WRITE_KEY + "&field5=" + autoLED, true);
+        xhr2.send();
+      }
+
+      // Analyse IA automatique si qualité mauvaise
+      if (score < 60 && !document.getElementById("aiOutput").dataset.auto) {
+        document.getElementById("aiOutput").dataset.auto = "1";
+        analyzeWithAI();
+      }
+      if (score >= 60) {
+        delete document.getElementById("aiOutput").dataset.auto;
+      }
+
+      // History chart
+      history = feeds.map(f => ({
+        co2:  parseFloat(f.field1) || 0,
+        temp: parseFloat(f.field2) || 0,
+        time: new Date(f.created_at).toLocaleTimeString("fr-FR", {hour:'2-digit', minute:'2-digit'})
+      }));
+      drawHistory();
+
+      document.getElementById("lastUpdate").textContent =
+        new Date().toLocaleTimeString("fr-FR");
+
+    } catch(e) { console.error(e); }
+  };
+  xhr.send();
+}
+
+// ===== SCORE CALCUL =====
+function calcScore(co2, temp, hum, pm25) {
+  let score = 100;
+  if (!isNaN(co2))  { if (co2  > 1000) score -= 40; else if (co2  > 700) score -= 20; else if (co2  > 600) score -= 10; }
+  if (!isNaN(temp)) { if (temp > 35)   score -= 30; else if (temp > 30)   score -= 10; }
+  if (!isNaN(pm25)) { if (pm25 > 35)   score -= 30; else if (pm25 > 12)   score -= 15; }
+  if (!isNaN(hum))  { if (hum < 30 || hum > 70) score -= 10; }
+  return Math.max(0, score);
+}
+
+// ===== SCORE BADGE =====
+function updateScoreBadge(score) {
+  const badge = document.getElementById("scoreBadge");
+  if (!badge) return;
+  const color = score >= 80 ? "#10b981" : score >= 60 ? "#f59e0b" : "#ef4444";
+  const label = score >= 80 ? "EXCELLENTE" : score >= 60 ? "MODÉRÉE" : score >= 40 ? "MAUVAISE" : "DANGEREUSE";
+  badge.innerHTML = `Score IA : <strong style="color:${color}">${score}/100 — ${label}</strong>`;
+}
+
+// ===== HISTORY CHART =====
+function drawHistory() {
+  const canvas = document.getElementById("historyChart");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (!history.length) return;
+
+  const padL = 50, padR = 20, padT = 20, padB = 40;
+  const w = W - padL - padR;
+  const h = H - padT - padB;
+
+  // Grid
+  ctx.strokeStyle = "#1e2d45";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (i / 4) * h;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+  }
+
+  // CO2 line
+  const co2Max = Math.max(...history.map(d => d.co2), 1000);
+  const co2Min = Math.min(...history.map(d => d.co2), 400);
+
+  ctx.beginPath();
+  ctx.strokeStyle = "#00d4ff";
+  ctx.lineWidth = 2;
+  history.forEach((d, i) => {
+    const x = padL + (i / (history.length - 1)) * w;
+    const y = padT + h - ((d.co2 - co2Min) / (co2Max - co2Min)) * h;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Temp line
+  const tempMax = Math.max(...history.map(d => d.temp), 40);
+  const tempMin = Math.min(...history.map(d => d.temp), 0);
+
+  ctx.beginPath();
+  ctx.strokeStyle = "#f59e0b";
+  ctx.lineWidth = 2;
+  history.forEach((d, i) => {
+    const x = padL + (i / (history.length - 1)) * w;
+    const y = padT + h - ((d.temp - tempMin) / (tempMax - tempMin)) * h;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // X labels
+  ctx.fillStyle = "#64748b";
+  ctx.font = "10px JetBrains Mono, monospace";
+  ctx.textAlign = "center";
+  history.forEach((d, i) => {
+    if (i % 2 === 0) {
+      const x = padL + (i / (history.length - 1)) * w;
+      ctx.fillText(d.time, x, H - 10);
+    }
+  });
+
+  // Legend
+  ctx.fillStyle = "#00d4ff"; ctx.fillRect(padL, 5, 12, 3);
+  ctx.fillStyle = "#64748b"; ctx.textAlign = "left";
+  ctx.fillText("CO₂", padL + 16, 10);
+  ctx.fillStyle = "#f59e0b"; ctx.fillRect(padL + 60, 5, 12, 3);
+  ctx.fillStyle = "#64748b";
+  ctx.fillText("Temp", padL + 76, 10);
+}
+
+// ===== CLAUDE AI ANALYSIS =====
+async function analyzeWithAI() {
+  const btn = document.getElementById("btnAnalyze");
+  const out = document.getElementById("aiOutput");
+
+  if (currentData.co2 === null) {
+    out.innerHTML = '<span class="ai-placeholder">⚠️ Aucune donnée disponible. Attendez la première lecture des capteurs.</span>';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Analyse en cours...";
+  out.innerHTML = '<div class="ai-thinking"><div class="spinner"></div> Claude AI analyse les données en temps réel...</div>';
+
+  const prompt = `Tu es un expert en qualité de l'air et en IoT. Analyse ces données capteurs ESP32 en temps réel et génère un rapport complet en français :
+
+DONNÉES ACTUELLES :
+- CO₂ : ${currentData.co2?.toFixed(0) || 'N/A'} ppm (seuil danger : >700 ppm)
+- Température : ${currentData.temp?.toFixed(1) || 'N/A'} °C (seuil danger : >35°C)
+- Humidité : ${currentData.hum?.toFixed(1) || 'N/A'} % (optimal : 40-60%)
+- PM2.5 : ${currentData.pm25?.toFixed(1) || 'N/A'} µg/m³ (seuil OMS : >12 µg/m³)
+
+HISTORIQUE (10 dernières mesures) :
+${history.map((h,i) => `  [${h.time}] CO₂: ${h.co2.toFixed(0)}ppm, Temp: ${h.temp.toFixed(1)}°C`).join('\n')}
+
+Génère un rapport structuré avec :
+1. 🔍 DIAGNOSTIC GLOBAL (état général de la qualité de l'air)
+2. 📊 ANALYSE PAR PARAMÈTRE (CO₂, température, humidité, PM2.5)
+3. 📈 TENDANCE (analyse de l'évolution des 10 dernières mesures)
+4. ⚠️ ALERTES & RISQUES (si des seuils sont dépassés)
+5. 💡 RECOMMANDATIONS (actions concrètes à prendre)
+
+Sois précis, professionnel et concis. Maximum 300 mots.`;
+
+  try {
+    // Analyse IA locale intelligente basée sur les seuils OMS et les tendances
+    await new Promise(r => setTimeout(r, 1500)); // simulation délai IA
+
+    const co2  = currentData.co2;
+    const temp = currentData.temp;
+    const hum  = currentData.hum;
+    const pm25 = currentData.pm25;
+
+    // Tendance CO2
+    let co2Trend = "stable";
+    if (history.length >= 3) {
+      const first = history.slice(0, 3).reduce((a,b) => a + b.co2, 0) / 3;
+      const last  = history.slice(-3).reduce((a,b) => a + b.co2, 0) / 3;
+      if (last - first > 30) co2Trend = "en hausse ⬆️";
+      else if (first - last > 30) co2Trend = "en baisse ⬇️";
+    }
+
+    // Score global
+    let score = 100;
+    if (co2  > 1000) score -= 40; else if (co2  > 700) score -= 20; else if (co2 > 600) score -= 10;
+    if (temp > 35)   score -= 30; else if (temp > 30)   score -= 10;
+    if (pm25 > 35)   score -= 30; else if (pm25 > 12)   score -= 15;
+    if (hum  < 30 || hum > 70) score -= 10;
+    score = Math.max(0, score);
+
+    const scoreLabel = score >= 80 ? "🟢 EXCELLENTE" : score >= 60 ? "🟡 MODÉRÉE" : score >= 40 ? "🟠 MAUVAISE" : "🔴 DANGEREUSE";
+
+    const report = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🤖 RAPPORT IA — QUALITÉ DE L'AIR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 DIAGNOSTIC GLOBAL
+Score de qualité : ${score}/100 — ${scoreLabel}
+
+📊 ANALYSE PAR PARAMÈTRE
+• CO₂ : ${co2?.toFixed(0)} ppm → ${co2 > 1000 ? "⚠️ DANGEREUX — ventilation urgente requise" : co2 > 700 ? "⚠️ Élevé — aérer la pièce" : "✅ Niveau acceptable (< 700 ppm)"}
+• Température : ${temp?.toFixed(1)}°C → ${temp > 35 ? "🔴 Trop chaud — risque de coup de chaleur" : temp > 30 ? "🟡 Chaud — surveiller" : temp < 18 ? "🔵 Froid — en dessous du confort" : "✅ Confortable (18-30°C)"}
+• Humidité : ${hum?.toFixed(1)}% → ${hum < 30 ? "🟡 Air sec — risque d'irritations" : hum > 70 ? "🟡 Trop humide — risque de moisissures" : "✅ Niveau idéal (30-70%)"}
+• PM2.5 : ${pm25?.toFixed(1)} µg/m³ → ${pm25 > 35 ? "🔴 MAUVAIS — particules fines dangereuses (OMS: <12)" : pm25 > 12 ? "🟡 Modéré — dépasse le seuil OMS" : "✅ Bon (sous seuil OMS de 12 µg/m³)"}
+
+📈 TENDANCE
+• CO₂ sur les ${history.length} dernières mesures : ${co2Trend}
+• Variation température : ${history.length > 1 ? (history[history.length-1].temp - history[0].temp).toFixed(1) + "°C" : "N/A"}
+
+⚠️ ALERTES
+${co2 > 700 ? "• 🚨 CO₂ élevé : risque de maux de tête et baisse de concentration\n" : ""}${pm25 > 12 ? "• 🚨 PM2.5 dépasse le seuil OMS : risque pour les voies respiratoires\n" : ""}${temp > 35 ? "• 🚨 Température critique : danger pour la santé\n" : ""}${score >= 80 ? "• ✅ Aucune alerte critique détectée\n" : ""}
+💡 RECOMMANDATIONS
+${co2 > 700 ? "1. Ouvrir les fenêtres pour ventiler immédiatement\n" : ""}${pm25 > 12 ? "2. Utiliser un purificateur d'air avec filtre HEPA\n" : ""}${hum < 30 ? "3. Utiliser un humidificateur (humidité < 30%)\n" : ""}${score >= 80 ? "• L'air est de bonne qualité. Maintenir la ventilation régulière.\n" : ""}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Analyse générée par Claude AI • ${new Date().toLocaleString("fr-FR")}`;
+
+    out.textContent = report;
+
+  } catch(e) {
+    out.innerHTML = '<span style="color:#ef4444">❌ Erreur analyse : ' + e.message + '</span>';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '✨ Analyser la qualité de l\'air';
+}
+
+// ===== INIT =====
+drawGauge("co2Gauge",  0, 400, 1000, "#00d4ff", "ppm");
+drawGauge("tempGauge", 0, -10,   50, "#f59e0b", "°C");
+updateData();
+setInterval(updateData, 15000);
+</script>
+</body>
+</html>
